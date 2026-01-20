@@ -1,0 +1,188 @@
+Enter<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Market | نظام الإدارة المتكامل</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --main: #ffcc00; --bg: #050505; --card: #111; --green: #25d366; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; }
+
+        /* Loader */
+        #loader { position: fixed; inset: 0; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        .brand { color: var(--main); font-size: 3rem; font-weight: bold; cursor: pointer; text-shadow: 0 0 15px var(--main); }
+        .progress-bar { width: 250px; height: 3px; background: #222; margin: 20px 0; overflow: hidden; }
+        #bar { width: 0%; height: 100%; background: var(--main); transition: 0.1s; }
+
+        /* Store */
+        #store { display: none; padding: 20px; }
+        header { text-align: center; padding: 40px; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; max-width: 1100px; margin: auto; }
+        .card { background: var(--card); border: 1px solid #222; padding: 15px; border-radius: 15px; text-align: center; }
+        .card img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 10px; }
+
+        /* Admin Styles */
+        #admin-panel { display: none; background: #000; border: 2px solid var(--main); padding: 20px; border-radius: 15px; margin: 30px auto; max-width: 800px; }
+        .stats { display: flex; gap: 10px; justify-content: space-around; margin-bottom: 20px; }
+        .stat-box { background: #1a1a1a; padding: 15px; border-radius: 10px; flex: 1; text-align: center; border-bottom: 3px solid var(--main); }
+        .admin-form { display: flex; flex-direction: column; gap: 10px; background: #111; padding: 15px; border-radius: 10px; }
+
+        /* Common Components */
+        input { width: 100%; padding: 10px; background: #222; border: 1px solid #333; color: white; border-radius: 5px; }
+        .btn { background: var(--main); color: black; border: none; padding: 12px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-inner { background: #151515; padding: 25px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid var(--main); }
+        .whatsapp { position: fixed; bottom: 20px; right: 20px; background: var(--green); color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; text-decoration: none; }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="brand" onclick="checkAdmin()">Matrix Market</div>
+        <div class="progress-bar"><div id="bar"></div></div>
+    </div>
+
+    <div id="store">
+        <header>
+            <h1 style="color:var(--main)">MATRIX MARKET</h1>
+            <p>لوحة التحكم والبيع المباشر</p>
+        </header>
+
+        <div class="product-grid" id="product-grid"></div>
+
+        <div id="admin-panel">
+            <h2 style="text-align:center; margin-bottom:15px;">📊 الإدارة والأرباح</h2>
+            <div class="stats">
+                <div class="stat-box">طلبات<span id="st-orders" style="display:block; color:var(--main)">0</span></div>
+                <div class="stat-box">مبيعات<span id="st-sales" style="display:block; color:var(--main)">0</span></div>
+                <div class="stat-box">أرباح<span id="st-profit" style="display:block; color:var(--main)">0</span></div>
+            </div>
+
+            <div class="admin-form">
+                <h3>➕ إضافة منتج بصورة</h3>
+                <input type="text" id="p-name" placeholder="اسم المنتج">
+                <input type="number" id="p-price" placeholder="سعر البيع للزبون">
+                <input type="number" id="p-cost" placeholder="تكلفتك الأصلية">
+                <input type="file" id="p-img" accept="image/*">
+                <button class="btn" onclick="addNewProduct()">رفع ونشر المنتج</button>
+            </div>
+            <button onclick="logoutAdmin()" style="margin-top:20px; background:none; color:red; border:none; cursor:pointer;">تسجيل خروج الأدمن</button>
+        </div>
+    </div>
+
+    <div id="orderModal" class="modal">
+        <div class="modal-inner">
+            <h3 id="modal-title">تأكيد الطلب</h3>
+            <form id="order-form">
+                <input type="text" id="cust-name" placeholder="الاسم" required>
+                <input type="tel" id="cust-phone" placeholder="الموبايل" required>
+                <input type="text" id="cust-addr" placeholder="العنوان" required>
+                <input type="hidden" id="h-price"><input type="hidden" id="h-cost">
+                <button type="submit" class="btn">إتمام الطلب</button>
+                <button type="button" onclick="closeModal()" style="background:none; color:gray; border:none; margin-top:10px; cursor:pointer; width:100%">إلغاء</button>
+            </form>
+        </div>
+    </div>
+
+    <a href="https://wa.me/201210371395" class="whatsapp" target="_blank"><i class="fab fa-whatsapp"></i></a>
+
+    <script>
+        let load = 0;
+        let isAdmin = localStorage.getItem('isMatrixAdmin') === 'true';
+        let stats = JSON.parse(localStorage.getItem('m_stats')) || { o:0, s:0, p:0 };
+        let products = JSON.parse(localStorage.getItem('m_prods')) || [];
+
+        // Loading Logic
+        let itv = setInterval(() => {
+            load++;
+            document.getElementById('bar').style.width = load + "%";
+            if(load >= 100) {
+                clearInterval(itv);
+                document.getElementById('loader').style.display = 'none';
+                document.getElementById('store').style.display = 'block';
+                if(isAdmin) document.getElementById('admin-panel').style.display = 'block';
+                renderProducts();
+            }
+        }, 20);
+
+        function checkAdmin() {
+            let p = prompt("كلمة سر الإدارة:");
+            if(p === "A01210371395a") {
+                localStorage.setItem('isMatrixAdmin', 'true');
+                location.reload();
+            }
+        }
+
+        function logoutAdmin() {
+            localStorage.removeItem('isMatrixAdmin');
+            location.reload();
+        }
+
+        function addNewProduct() {
+            const name = document.getElementById('p-name').value;
+            const price = document.getElementById('p-price').value;
+            const cost = document.getElementById('p-cost').value;
+            const imgFile = document.getElementById('p-img').files[0];
+
+            if(name && price && cost && imgFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    products.push({ name, price: parseFloat(price), cost: parseFloat(cost), img: e.target.result });
+                    localStorage.setItem('m_prods', JSON.stringify(products));
+                    renderProducts();
+                    alert("تم النشر!");
+                };
+                reader.readAsDataURL(imgFile);
+            }
+        }
+
+        function renderProducts() {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = products.map((p, i) => `
+                <div class="card">
+                    <img src="${p.img}">
+                    <h3>${p.name}</h3>
+                    <p style="color:var(--main); font-weight:bold">${p.price} ج.م</p>
+                    <button class="btn" onclick="openOrder('${p.name}', ${p.price}, ${p.cost})">اطلب الآن</button>
+                    ${isAdmin ? `<button onclick="deleteProd(${i})" style="color:red; background:none; border:none; margin-top:10px; cursor:pointer;">حذف المنتج</button>` : ''}
+                </div>
+            `).join('');
+            updateStatsUI();
+        }
+
+        function deleteProd(i) {
+            products.splice(i, 1);
+            localStorage.setItem('m_prods', JSON.stringify(products));
+            renderProducts();
+        }
+
+        function openOrder(n, p, c) {
+            document.getElementById('orderModal').style.display = 'flex';
+            document.getElementById('modal-title').innerText = "طلب " + n;
+            document.getElementById('h-price').value = p;
+            document.getElementById('h-cost').value = c;
+        }
+
+        function closeModal() { document.getElementById('orderModal').style.display = 'none'; }
+
+        document.getElementById('order-form').onsubmit = function(e) {
+            e.preventDefault();
+            let pr = parseFloat(document.getElementById('h-price').value);
+            let co = parseFloat(document.getElementById('h-cost').value);
+            stats.o++; stats.s += pr; stats.p += (pr - co);
+            localStorage.setItem('m_stats', JSON.stringify(stats));
+            alert("تم إرسال طلبك!");
+            closeModal();
+            renderProducts();
+        };
+
+        function updateStatsUI() {
+            document.getElementById('st-orders').innerText = stats.o;
+            document.getElementById('st-sales').innerText = stats.s + " ج.م";
+            document.getElementById('st-profit').innerText = stats.p + " ج.م";
+        }
+    </script>
+</body>
+</html>
